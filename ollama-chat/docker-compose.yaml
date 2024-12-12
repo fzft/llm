@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  ollama-chat:
+    container_name: ollama-chat
+    image: ollama-chat:latest
+    depends_on:
+      - ollama
+    ports:
+      - "8000:8000"
+      - "50051:50051"
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ./models:/root/.ollama/models
+    ports:
+      - "11434:11434"

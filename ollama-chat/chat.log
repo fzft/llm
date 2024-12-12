@@ -1,0 +1,121 @@
+2024-10-16 10:52:30 [INFO] - Starting server on 0.0.0.0:3000
+2024-10-16 10:53:09 [INFO] - Request: /swagger-ui GET
+2024-10-16 10:53:09 [INFO] - Response: 200 OK
+2024-10-16 10:53:09 [INFO] - Request: /swagger-ui.css GET
+2024-10-16 10:53:09 [INFO] - Response: 404 Not Found
+2024-10-16 10:53:09 [INFO] - Request: /index.css GET
+2024-10-16 10:53:09 [INFO] - Response: 404 Not Found
+2024-10-16 10:53:09 [INFO] - Request: /swagger-ui-bundle.js GET
+2024-10-16 10:53:09 [INFO] - Response: 404 Not Found
+2024-10-16 10:53:09 [INFO] - Request: /swagger-initializer.js GET
+2024-10-16 10:53:09 [INFO] - Request: /swagger-ui-standalone-preset.js GET
+2024-10-16 10:53:09 [INFO] - Response: 404 Not Found
+2024-10-16 10:53:09 [INFO] - Response: 404 Not Found
+2024-10-16 10:53:09 [INFO] - Request: /favicon-32x32.png GET
+2024-10-16 10:53:09 [INFO] - Response: 404 Not Found
+2024-10-16 10:53:09 [INFO] - Request: /favicon-16x16.png GET
+2024-10-16 10:53:09 [INFO] - Response: 404 Not Found
+2024-10-16 11:05:28 [INFO] - Starting server on 0.0.0.0:3000
+2024-10-16 11:11:33 [INFO] - Starting server on 0.0.0.0:3000
+2024-10-16 11:16:08 [INFO] - Starting server on 0.0.0.0:3000
+2024-10-16 11:16:15 [INFO] - Request: /swagger-ui GET
+2024-10-16 11:16:15 [INFO] - Response: 200 OK
+2024-10-16 11:16:15 [INFO] - Request: /swagger-ui.css GET
+2024-10-16 11:16:15 [INFO] - Response: 404 Not Found
+2024-10-16 11:16:15 [INFO] - Request: /index.css GET
+2024-10-16 11:16:15 [INFO] - Response: 404 Not Found
+2024-10-16 11:16:15 [INFO] - Request: /swagger-ui-bundle.js GET
+2024-10-16 11:16:15 [INFO] - Response: 404 Not Found
+2024-10-16 11:16:15 [INFO] - Request: /swagger-initializer.js GET
+2024-10-16 11:16:15 [INFO] - Request: /swagger-ui-standalone-preset.js GET
+2024-10-16 11:16:15 [INFO] - Response: 404 Not Found
+2024-10-16 11:16:15 [INFO] - Response: 404 Not Found
+2024-10-16 11:16:15 [INFO] - Request: /favicon-32x32.png GET
+2024-10-16 11:16:15 [INFO] - Response: 404 Not Found
+2024-10-16 11:16:15 [INFO] - Request: /favicon-16x16.png GET
+2024-10-16 11:16:15 [INFO] - Response: 404 Not Found
+2024-10-16 11:18:15 [INFO] - Request: /swagger-ui GET
+2024-10-16 11:18:15 [INFO] - Response: 200 OK
+2024-10-16 11:18:15 [INFO] - Request: /swagger-ui.css GET
+2024-10-16 11:18:15 [INFO] - Response: 404 Not Found
+2024-10-16 11:18:15 [INFO] - Request: /index.css GET
+2024-10-16 11:18:15 [INFO] - Response: 404 Not Found
+2024-10-16 11:18:15 [INFO] - Request: /swagger-initializer.js GET
+2024-10-16 11:18:15 [INFO] - Request: /swagger-ui-standalone-preset.js GET
+2024-10-16 11:18:15 [INFO] - Response: 404 Not Found
+2024-10-16 11:18:15 [INFO] - Response: 404 Not Found
+2024-10-16 11:18:15 [INFO] - Request: /swagger-ui-bundle.js GET
+2024-10-16 11:18:15 [INFO] - Response: 404 Not Found
+2024-10-16 11:18:15 [INFO] - Request: /favicon-32x32.png GET
+2024-10-16 11:18:15 [INFO] - Response: 404 Not Found
+2024-10-16 11:18:15 [INFO] - Request: /favicon-16x16.png GET
+2024-10-16 11:18:15 [INFO] - Response: 404 Not Found
+2024-10-16 11:18:22 [INFO] - Request: /health GET
+2024-10-16 11:18:22 [INFO] - Response: 200 OK
+2024-10-16 11:18:27 [INFO] - Request: /system-info GET
+2024-10-16 11:18:27 [INFO] - Response: 200 OK
+2024-10-16 11:18:38 [INFO] - Request: / GET
+2024-10-16 11:18:38 [INFO] - Response: 404 Not Found
+2024-10-16 11:27:31 [INFO] - Starting server on 0.0.0.0:3000
+2024-10-16 11:31:38 [INFO] - Starting server on 0.0.0.0:3000
+2024-10-16 11:31:48 [INFO] - Starting server on 0.0.0.0:3000
+2024-10-16 11:31:54 [INFO] - Request: / GET
+2024-10-16 11:31:54 [INFO] - Response: 404 Not Found
+2024-10-16 11:31:59 [INFO] - Request: /swagger-ui GET
+2024-10-16 11:31:59 [INFO] - Response: 200 OK
+2024-10-16 11:31:59 [INFO] - Request: /swagger-ui.css GET
+2024-10-16 11:31:59 [INFO] - Response: 404 Not Found
+2024-10-16 11:31:59 [INFO] - Request: /index.css GET
+2024-10-16 11:31:59 [INFO] - Response: 404 Not Found
+2024-10-16 11:31:59 [INFO] - Request: /swagger-ui-bundle.js GET
+2024-10-16 11:31:59 [INFO] - Request: /swagger-initializer.js GET
+2024-10-16 11:31:59 [INFO] - Response: 404 Not Found
+2024-10-16 11:31:59 [INFO] - Response: 404 Not Found
+2024-10-16 11:31:59 [INFO] - Request: /swagger-ui-standalone-preset.js GET
+2024-10-16 11:31:59 [INFO] - Response: 404 Not Found
+2024-10-16 11:31:59 [INFO] - Request: /favicon-32x32.png GET
+2024-10-16 11:31:59 [INFO] - Response: 404 Not Found
+2024-10-16 11:31:59 [INFO] - Request: /favicon-16x16.png GET
+2024-10-16 11:31:59 [INFO] - Response: 404 Not Found
+2024-10-16 11:33:56 [INFO] - Starting server on 0.0.0.0:3000
+2024-10-16 11:34:02 [INFO] - Request: /swagger-ui GET
+2024-10-16 11:34:02 [INFO] - Response: 200 OK
+2024-10-16 11:34:02 [INFO] - Request: /swagger-ui.css GET
+2024-10-16 11:34:02 [INFO] - Response: 404 Not Found
+2024-10-16 11:34:02 [INFO] - Request: /index.css GET
+2024-10-16 11:34:02 [INFO] - Response: 404 Not Found
+2024-10-16 11:34:02 [INFO] - Request: /swagger-ui-bundle.js GET
+2024-10-16 11:34:02 [INFO] - Response: 404 Not Found
+2024-10-16 11:34:02 [INFO] - Request: /swagger-ui-standalone-preset.js GET
+2024-10-16 11:34:02 [INFO] - Request: /swagger-initializer.js GET
+2024-10-16 11:34:02 [INFO] - Response: 404 Not Found
+2024-10-16 11:34:02 [INFO] - Response: 404 Not Found
+2024-10-16 11:34:02 [INFO] - Request: /favicon-32x32.png GET
+2024-10-16 11:34:02 [INFO] - Response: 404 Not Found
+2024-10-16 11:34:03 [INFO] - Request: /favicon-16x16.png GET
+2024-10-16 11:34:03 [INFO] - Response: 404 Not Found
+2024-10-16 11:41:46 [INFO] - Starting server on 0.0.0.0:3000
+2024-10-16 11:41:52 [INFO] - Request: /swagger-ui GET
+2024-10-16 11:41:52 [INFO] - Response: 200 OK
+2024-10-16 11:42:27 [INFO] - Request: /swagger-ui GET
+2024-10-16 11:42:27 [INFO] - Response: 200 OK
+2024-10-16 14:09:38 [INFO] - Starting server on 0.0.0.0:3000
+2024-10-16 14:12:51 [INFO] - Request: /health GET
+2024-10-16 14:12:51 [INFO] - Response: 200 OK
+2024-10-16 14:13:15 [INFO] - Request: /api/metrics/system-info GET
+2024-10-16 14:13:15 [INFO] - Response: 200 OK
+2024-10-16 14:48:35 [INFO] - Request: /api/llm/chat POST
+2024-10-16 14:50:35 [INFO] - Starting server on 0.0.0.0:3000
+2024-10-16 14:50:40 [INFO] - Request: /api/llm/chat POST
+2024-10-16 18:50:39 [INFO] - Starting server on 0.0.0.0:3000
+2024-10-16 18:50:42 [INFO] - Request: /api/metrics/system-info GET
+2024-10-16 18:50:42 [INFO] - Response: 200 OK
+2024-10-17 11:19:50 [INFO] - Starting server on 0.0.0.0:8000
+2024-10-17 11:19:55 [INFO] - Request: /api/llm/chat POST
+2024-10-17 11:19:55 [INFO] - ollama host: 127.0.0.1, port: 11434, model: llama3.2:latest
+2024-10-17 11:22:43 [INFO] - Starting server on 0.0.0.0:8000
+2024-10-17 11:22:46 [INFO] - Request: /api/llm/chat POST
+2024-10-17 11:22:46 [INFO] - ollama host: http://127.0.0.1, port: 11434, model: llama3.2:latest
+2024-10-17 11:22:46 [INFO] - ollama: Ollama { url: Url { scheme: "http", cannot_be_a_base: false, username: "", password: None, host: Some(Ipv4(127.0.0.1)), port: Some(11434), path: "/", query: None, fragment: None }, reqwest_client: Client { accepts: Accepts, proxies: [Proxy(System({}), None)], referer: true, default_headers: {"accept": "*/*"} } }
+2024-10-17 11:22:46 [INFO] - response: Ok(GenerationResponse { model: "llama3.2:latest", created_at: "2024-10-17T03:22:46.913235Z", response: "您好！是很高兴和您交流。有哪些问题或主题您想与我讨论？", done: true, context: Some(GenerationContext([128006, 9125, 128007, 271, 38766, 1303, 33025, 2696, 25, 6790, 220, 2366, 18, 271, 128009, 128006, 882, 128007, 271, 57668, 53901, 128009, 128006, 78191, 128007, 271, 88126, 53901, 6447, 21043, 101600, 45736, 106236, 34208, 88126, 113841, 1811, 19361, 106189, 98184, 87219, 58291, 124010, 88126, 101067, 58318, 37046, 112962, 68931, 11571])), total_duration: Some(482949000), prompt_eval_count: Some(27), prompt_eval_duration: Some(144264000), eval_count: Some(25), eval_duration: Some(299498000) })
+2024-10-17 11:22:46 [INFO] - Response: 200 OK

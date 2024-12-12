@@ -1,0 +1,31 @@
+[package]
+name = "ollama-chat"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+tokio = { version = "1.40.0", features = ["full"] }
+axum = {version = "0.7.7", features = ["ws"]}
+sysinfo = "0.32.0"
+serde_json = "1.0"
+ollama-rs = { version = "0.2.1", features = ["stream"] }
+env_logger = "0.11.5"
+chrono = "0.4.22"
+log = "0.4"
+tokio-stream = { version = "0.1.16"}
+tower-http = {version = "0.6.1", features = ["fs"]}
+utoipa = { version = "5.0.0", features = ["axum_extras"] }  # For OpenAPI spec generation
+utoipa-swagger-ui = {version = "8", features = ["axum"]}  
+utoipa-axum = "0.1.0"
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+futures = "0.3"
+tonic = "0.12"
+prost = "0.13"
+
+[build-dependencies]
+tonic-build = "0.12"
+
