@@ -1,6 +1,9 @@
-use candle_core::{Device, Result, Tensor, D};
+mod core;
+
+use candle_core::{Device, Result, Tensor, D, DType, IndexOp};
 use candle_nn::ops::softmax;
-use candle_nn::{Linear, Module};
+use candle_nn::{Dropout, Linear, Module};
+use crate::core::attn::*;
 
 pub fn naive_softmax(x: &Tensor) -> Tensor {
     let exp = x.exp().unwrap();
@@ -8,16 +11,6 @@ pub fn naive_softmax(x: &Tensor) -> Tensor {
     let sum = exp.sum_keepdim(0).unwrap();
     println!("{:?}", sum);
     exp.broadcast_div(&sum).unwrap()
-}
-
-pub fn masked_fill(on_false: &Tensor, mask: &Tensor, on_true: f32) -> Result<Tensor> {
-    let shape = mask.shape();
-    let on_true = Tensor::new(on_true, on_false.device())?.broadcast_as(shape.dims())?;
-    println!("{}", on_true);
-    println!("{}", on_false);
-    println!("{}", mask);
-    let m = mask.where_cond(&on_true, &on_false)?;
-    Ok(m)
 }
 
 pub struct SelfAttentionV1 {
@@ -124,10 +117,88 @@ impl SelfAttentionV2 {
     }
 }
 
+pub struct CausalSelfAttention {
+    dropout: Dropout,
+    w_query: Linear,
+    w_key: Linear,
+    w_value: Linear,
+    device: Device,
+    mask: Tensor,
+}
+
+impl CausalSelfAttention {
+    pub fn new(
+        d_in: usize,
+        d_out: usize,
+        context_length: usize,
+        dropout_rate: f32,
+        bias: Option<Tensor>,
+    ) -> Self {
+        let device = Device::Cpu;
+        let w_tensor = Tensor::rand(0.0, 1.0, (d_out, d_in), &device).unwrap();
+        let w_query = Linear::new(w_tensor.clone(), bias.clone());
+        let w_key = Linear::new(w_tensor.clone(), bias.clone());
+        let w_value = Linear::new(w_tensor.clone(), bias.clone());
+        let dropout = Dropout::new(dropout_rate);
+        let mask = Tensor::triu2(context_length, DType::F64, &device).unwrap();
+        let eye = Tensor::eye(context_length, DType::F64, &device).unwrap();
+        let mask = mask.sub(&eye).unwrap();
+        let mask = mask.gt(0.0).unwrap();
+        Self {
+            w_query,
+            w_key,
+            w_value,
+            dropout,
+            device,
+            mask,
+        }
+    }
+
+    pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
+        let (b, t, d_in) = x.shape().dims3()?;
+        println!("b: {}, t: {}, d_in: {}", b, t, d_in);
+        let queries = self.w_query.forward(x)?;
+        let keys = self.w_key.forward(x)?;
+        let values = self.w_value.forward(x)?;
+        let attn_scores = queries.matmul(&keys.t()?)?;
+        let mask = self.mask.i((0..t, 0..t)).unwrap();
+        let mask = mask.broadcast_as(attn_scores.shape())?;
+        let masked = masked_fill(&attn_scores, &mask, f64::NEG_INFINITY)?;
+        let scaled_scores = self.scale_scores(masked)?;
+        let softmax_scores = softmax(&scaled_scores, D::Minus1)?;
+        let dropout_scores = self.dropout.forward(&softmax_scores, true)?;
+        let context = dropout_scores.matmul(&values)?;
+        Ok(context)
+    }
+
+    fn scale_scores(&self, scores: Tensor) -> Result<Tensor> {
+        let (_, _, dk) = scores.shape().dims3()?;
+        let scale_factor = Tensor::new(vec![dk as f64], &self.device)?.sqrt()?;
+        scores.broadcast_div(&scale_factor)
+    }
+}
+
+pub struct MultiHeadAttentionWrapper {
+    heads: Vec<CausalSelfAttention>,
+}
+
+impl MultiHeadAttentionWrapper {
+    pub fn new(d_in: usize, d_out: usize, context_length: usize, dropout_rate: f32, num_heads: usize, bias: Option<Tensor>) -> Self {
+        let heads = (0..num_heads).map(|_| CausalSelfAttention::new(d_in, d_out, context_length, dropout_rate, bias.clone())).collect();
+        Self { heads }
+    }
+
+    pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
+        let heads = self.heads.iter().map(|h| h.forward(x)).collect::<Result<Vec<_>>>()?;
+        let out = Tensor::cat(&heads, D::Minus1)?;
+        Ok(out)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use candle_core::{DType, Device, Tensor};
+    use candle_core::{DType, Device, Tensor, IndexOp};
     use candle_nn::ops::softmax;
 
     #[test]
@@ -286,8 +357,112 @@ mod tests {
     fn test_masked_fill() {
         let device = Device::Cpu;
         let attn_scores = Tensor::rand(0.0, 1.0, (6, 6), &device).unwrap();
-        let tril = Tensor::tril2(6, DType::F64, &device).unwrap();
-        let masked = masked_fill(&attn_scores, &tril, f64::NEG_INFINITY).unwrap();
-        println!("{}", masked);
+        let tril = Tensor::triu2(6, DType::F64, &device).unwrap();
+        let eye = Tensor::eye(6, DType::F64, &device).unwrap();
+        let tril = tril.sub(&eye).unwrap();
+        let tril_bool = tril.gt(0.0).unwrap();
+        let masked = masked_fill(&attn_scores, &tril_bool, f64::NEG_INFINITY).unwrap();
+        let softmax_scores = softmax(&masked, D::Minus1).unwrap();
+        println!("{}", softmax_scores);
+        let dropout = Dropout::new(0.5);
+        let dropout_scores = dropout.forward(&softmax_scores, true).unwrap();
+        println!("{}", dropout_scores);
+    }
+
+    #[test]
+    fn test_index_select() {
+        let device = Device::Cpu;
+        let t = Tensor::new(
+            vec![
+                vec![0.43, 0.15, 0.89], // Your     (x^1)
+                vec![0.55, 0.87, 0.66], // journey  (x^2)
+                vec![0.57, 0.85, 0.64], // starts   (x^3)
+                vec![0.22, 0.58, 0.33], // with     (x^4)
+                vec![0.77, 0.25, 0.10], // one      (x^5)
+                vec![0.05, 0.80, 0.55], // step     (x^6)
+            ],
+            &device,
+        )
+        .unwrap();
+        let num = 2;
+        let out = t.i((0..=num, 0..=num)).unwrap();
+        println!("{}", out);
+    }
+
+    #[test]
+    fn test_causal_self_attention() {
+        let device = Device::Cpu;
+        let t = Tensor::new(
+            vec![
+                vec![0.43, 0.15, 0.89], // Your     (x^1)
+                vec![0.55, 0.87, 0.66], // journey  (x^2)
+                vec![0.57, 0.85, 0.64], // starts   (x^3)
+                vec![0.22, 0.58, 0.33], // with     (x^4)
+                vec![0.77, 0.25, 0.10], // one      (x^5)
+                vec![0.05, 0.80, 0.55], // step     (x^6)
+            ],
+            &device,
+        )
+        .unwrap();
+
+        let batch = Tensor::stack(&[t.clone(), t.clone()], 0).unwrap();
+        let causal_self_attn = CausalSelfAttention::new(3, 2, 6, 0.0, None);
+        let out = causal_self_attn.forward(&batch).unwrap();
+        println!("{}", out);
+    }
+
+    #[test]
+    fn test_mask() {
+        let device = Device::Cpu;
+        let t = 6;
+        let mask: Vec<_> = (0..t)
+                .flat_map(|i| (0..t).map(move |j| u8::from(j > i)))
+                .collect();
+        println!("{:?}", mask);
+        let mask = Tensor::from_slice(&mask, (t, t), &device).unwrap();
+        let mask = mask.broadcast_as((2, 6, 6)).unwrap();
+        println!("{}", mask);
+    }
+
+    #[test]
+    fn test_multi_head_attention() {
+        let device = Device::Cpu;
+        let t = Tensor::new(
+            vec![
+                vec![0.43, 0.15, 0.89], // Your     (x^1)
+                vec![0.55, 0.87, 0.66], // journey  (x^2)
+                vec![0.57, 0.85, 0.64], // starts   (x^3)
+                vec![0.22, 0.58, 0.33], // with     (x^4)
+                vec![0.77, 0.25, 0.10], // one      (x^5)
+                vec![0.05, 0.80, 0.55], // step     (x^6)
+            ],
+            &device,
+        )
+        .unwrap();
+        let batch = Tensor::stack(&[t.clone(), t.clone()], 0).unwrap();
+        let multi_head = MultiHeadAttentionWrapper::new(3, 2, 6, 0.0, 2, None);
+        let out = multi_head.forward(&batch).unwrap();
+        println!("{}", out);
+    }
+
+    #[test]
+    fn test_mul() {
+        let device = Device::Cpu;
+        let t = Tensor::new(
+            vec![
+                vec![0.43, 0.15, 0.89], // Your     (x^1)
+                vec![0.55, 0.87, 0.66], // journey  (x^2)
+                vec![0.57, 0.85, 0.64], // starts   (x^3)
+                vec![0.22, 0.58, 0.33], // with     (x^4)
+                vec![0.77, 0.25, 0.10], // one      (x^5)
+                vec![0.05, 0.80, 0.55], // step     (x^6)
+            ],
+            &device,
+        )
+        .unwrap();
+        let batch = Tensor::stack(&[t.clone(), t.clone()], 0).unwrap();
+        let multi_head = MultiHeadAttention::new(3, 2, 6, 2, 0.0, None);
+        let out = multi_head.forward(&batch).unwrap();
+        println!("{}", out);
     }
 }

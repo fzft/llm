@@ -1,6 +1,7 @@
 use working_with_text_data::{
-    download_file, get_vocab, preprocess, read_file, resplit, SimpleTokenizerV1, text_join,
+    download_file, get_vocab, preprocess, read_file, resplit, SimpleTokenizerV1, SimpleTokenizerV2, text_join, Tokenizer as TokenizerV1
 };
+
 use tokenizers::tokenizer::Tokenizer;
 
 #[cfg(test)]

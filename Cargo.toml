@@ -6,13 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace.dependencies]
-candle-core = { git = "https://github.com/huggingface/candle.git", version = "0.8.1" }
-candle-nn = { git = "https://github.com/huggingface/candle.git", version = "0.8.1" }
+candle-core = { git = "https://github.com/huggingface/candle.git", version = "0.8.1" , features = ["cuda"] }
+candle-nn = { git = "https://github.com/huggingface/candle.git", version = "0.8.1" , features = ["cuda"] }
+tokenizers = { version = "0.20.1", features = ["http"] }
 
 [workspace]
 members = [ 
     "llm-impl/working-with-text-data",
     "llm-impl/attention",
+    "llm-impl/gpt",
     "ollama-chat",
     "ollama-dev"
-]
+, "llm-impl/gpt"]
