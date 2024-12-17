@@ -79,7 +79,8 @@ impl DummyGptModel {
         // (batch_size, seq_len, emb_dim) -> (batch_size, seq_len, emb_dim)
         let pos_embeds = self
             .pos_emb
-            .forward(&Tensor::arange(0.0, t as f64, &self.device)?)?;
+            .forward(&Tensor::arange(0, t as u32, &self.device)?)?
+            .broadcast_as(tok_embeds.shape())?;
         println!("pos_embeds shape: {:?}", pos_embeds.shape());
         let x = tok_embeds.add(&pos_embeds)?;
         let mut x = self.drop_emb.forward(&x, false)?;
