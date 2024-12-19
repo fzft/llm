@@ -1,9 +1,9 @@
-mod core;
+pub mod core;
 
-use candle_core::{Device, Result, Tensor, D, DType, IndexOp};
+use crate::core::attn::*;
+use candle_core::{DType, Device, IndexOp, Result, Tensor, D};
 use candle_nn::ops::softmax;
 use candle_nn::{Dropout, Linear, Module};
-use crate::core::attn::*;
 
 pub fn naive_softmax(x: &Tensor) -> Tensor {
     let exp = x.exp().unwrap();
@@ -163,7 +163,7 @@ impl CausalSelfAttention {
         let attn_scores = queries.matmul(&keys.t()?)?;
         let mask = self.mask.i((0..t, 0..t)).unwrap();
         let mask = mask.broadcast_as(attn_scores.shape())?;
-        let masked = masked_fill(&attn_scores, &mask, f64::NEG_INFINITY)?;
+        let masked = masked_fill(&attn_scores, &mask, f32::NEG_INFINITY)?;
         let scaled_scores = self.scale_scores(masked)?;
         let softmax_scores = softmax(&scaled_scores, D::Minus1)?;
         let dropout_scores = self.dropout.forward(&softmax_scores, true)?;
@@ -183,13 +183,28 @@ pub struct MultiHeadAttentionWrapper {
 }
 
 impl MultiHeadAttentionWrapper {
-    pub fn new(d_in: usize, d_out: usize, context_length: usize, dropout_rate: f32, num_heads: usize, bias: Option<Tensor>) -> Self {
-        let heads = (0..num_heads).map(|_| CausalSelfAttention::new(d_in, d_out, context_length, dropout_rate, bias.clone())).collect();
+    pub fn new(
+        d_in: usize,
+        d_out: usize,
+        context_length: usize,
+        dropout_rate: f32,
+        num_heads: usize,
+        bias: Option<Tensor>,
+    ) -> Self {
+        let heads = (0..num_heads)
+            .map(|_| {
+                CausalSelfAttention::new(d_in, d_out, context_length, dropout_rate, bias.clone())
+            })
+            .collect();
         Self { heads }
     }
 
     pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
-        let heads = self.heads.iter().map(|h| h.forward(x)).collect::<Result<Vec<_>>>()?;
+        let heads = self
+            .heads
+            .iter()
+            .map(|h| h.forward(x))
+            .collect::<Result<Vec<_>>>()?;
         let out = Tensor::cat(&heads, D::Minus1)?;
         Ok(out)
     }
@@ -198,7 +213,7 @@ impl MultiHeadAttentionWrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use candle_core::{DType, Device, Tensor, IndexOp};
+    use candle_core::{DType, Device, IndexOp, Tensor};
     use candle_nn::ops::softmax;
 
     #[test]
@@ -361,7 +376,7 @@ mod tests {
         let eye = Tensor::eye(6, DType::F64, &device).unwrap();
         let tril = tril.sub(&eye).unwrap();
         let tril_bool = tril.gt(0.0).unwrap();
-        let masked = masked_fill(&attn_scores, &tril_bool, f64::NEG_INFINITY).unwrap();
+        let masked = masked_fill(&attn_scores, &tril_bool, f32::NEG_INFINITY).unwrap();
         let softmax_scores = softmax(&masked, D::Minus1).unwrap();
         println!("{}", softmax_scores);
         let dropout = Dropout::new(0.5);
@@ -416,8 +431,8 @@ mod tests {
         let device = Device::Cpu;
         let t = 6;
         let mask: Vec<_> = (0..t)
-                .flat_map(|i| (0..t).map(move |j| u8::from(j > i)))
-                .collect();
+            .flat_map(|i| (0..t).map(move |j| u8::from(j > i)))
+            .collect();
         println!("{:?}", mask);
         let mask = Tensor::from_slice(&mask, (t, t), &device).unwrap();
         let mask = mask.broadcast_as((2, 6, 6)).unwrap();
@@ -461,7 +476,7 @@ mod tests {
         )
         .unwrap();
         let batch = Tensor::stack(&[t.clone(), t.clone()], 0).unwrap();
-        let multi_head = MultiHeadAttention::new(3, 2, 6, 2, 0.0, None);
+        let multi_head = MultiHeadAttention::new(3, 2, 6, 2, 0.0, None, device);
         let out = multi_head.forward(&batch).unwrap();
         println!("{}", out);
     }

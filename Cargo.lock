@@ -1025,6 +1025,7 @@ checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 name = "gpt"
 version = "0.1.0"
 dependencies = [
+ "attention",
  "candle-core 0.8.1",
  "candle-nn",
  "tokenizers",
