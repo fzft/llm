@@ -23,7 +23,7 @@ pub fn stack_tensors() -> Result<Tensor> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use candle_core::{Tensor, D};
+    use candle_core::{Tensor, D, IndexOp};
     use candle_nn::{Linear, Module};
 
     #[test]
@@ -95,6 +95,26 @@ mod tests {
         .unwrap();
         let y = x.gelu().unwrap();
         println!("y: {}", y);
+    }
+
+    #[test]
+    pub fn test_generate_text_simple() {
+        let start_context = "Hello, I am a";
+        let tokenizer = Tokenizer::from_pretrained("gpt2", None).unwrap();
+        let encoded = tokenizer.encode(start_context, true).unwrap();
+        let idx = Tensor::from_vec(encoded.get_ids().to_vec(), (1, encoded.len()), &get_device()).unwrap();
+        let output = generate_text_simple(&DummyGptModel::new(GptConfig {
+            vocab_size: 50257,
+            context_length: 1024,
+            emb_dim: 768,
+            n_layers: 1,
+            n_heads: 12,
+            drop_rate: 0.1,
+            qkv_bias: false,
+        }), &idx, 6, 1024).unwrap();
+        let output = output.squeeze(0).unwrap().to_vec1().unwrap();
+        let decoded = tokenizer.decode(&output, true).unwrap();
+        println!("output: {}", decoded);
     }
 
     #[test]

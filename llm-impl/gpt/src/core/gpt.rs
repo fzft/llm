@@ -1,6 +1,6 @@
 use attention::core::attn::*;
-use candle_core::{DType, Device, Result, Tensor, D};
-use candle_nn::{Dropout, Embedding, Linear, Module};
+use candle_core::{DType, Device, Result, Tensor, D, IndexOp};
+use candle_nn::{Dropout, Embedding, Linear, Module, ops::softmax};
 
 #[derive(Clone)]
 pub struct GptConfig {
@@ -121,14 +121,11 @@ impl DummyTransformerBlock {
 
     pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
         let shortcut = x.clone();
-        println!("x shape: {:?}", x.shape());
         let x = self.norm1.forward(&x)?;
         let x = self.attn.forward(&x)?;
-        println!("x shape: {:?}", x.shape());
         let x = self.dropout.forward(&x, false)?;
         let x = x.add(&shortcut)?;
         let x = self.norm2.forward(&x)?;
-        println!("x shape: {:?}", x.shape());
         let x = self.ff.forward(&x)?;
         let x = x.add(&shortcut)?;
         Ok(x)
@@ -210,4 +207,20 @@ pub fn get_device() -> Device {
     } else {
         Device::Cpu
     }
+}
+
+pub fn generate_text_simple(model: &DummyGptModel, idx: &Tensor, max_new_tokens: usize, context_size: usize) -> Result<Tensor> {
+    let mut idx = idx.clone();
+    for _ in 0..max_new_tokens {
+        let (b, t) = idx.shape().dims2()?;
+        let start_idx = if t > context_size { t - context_size } else { 0 };
+        let idx_cond = idx.i((.., start_idx..t))?;
+        let logits = model.forward(&idx_cond)?;
+        let (b, t, _) = logits.shape().dims3()?;
+        let logits = logits.i((.., t - 1, ..))?;
+        let probas = softmax(&logits, D::Minus1)?;
+        let idx_next: Tensor = probas.argmax_keepdim(D::Minus1)?;
+        idx = Tensor::cat(&[idx, idx_next], 1)?;
+    }
+    Ok(idx)
 }

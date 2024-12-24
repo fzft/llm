@@ -1,0 +1,10 @@
+[package]
+name = "pretraining"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+candle-core = { workspace = true }
+candle-nn = { workspace = true }
+gpt = { path = "../gpt" }
+tokenizers = { workspace = true }
