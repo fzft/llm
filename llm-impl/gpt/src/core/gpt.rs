@@ -1,6 +1,10 @@
+use std::collections::HashMap;
+
 use attention::core::attn::*;
-use candle_core::{DType, Device, Result, Tensor, D, IndexOp};
-use candle_nn::{Dropout, Embedding, Linear, Module, ops::softmax};
+use candle_core::{DType, Device, IndexOp, Result, Tensor, D};
+use candle_nn::{
+    embedding, linear, ops::softmax, Dropout, Embedding, Init, Linear, Module, VarBuilder, VarMap,
+};
 
 #[derive(Clone)]
 pub struct GptConfig {
@@ -24,40 +28,33 @@ pub struct DummyGptModel {
 }
 
 impl DummyGptModel {
-    pub fn new(config: GptConfig) -> Self {
+    pub fn new(config: GptConfig) -> Result<Self> {
         let device = get_device();
-        let tok_emb_tensor = Tensor::rand(
-            0.0 as f32,
-            1.0 as f32,
-            (config.vocab_size, config.emb_dim),
-            &device,
-        )
-        .unwrap();
-        let tok_emb = Embedding::new(tok_emb_tensor, config.emb_dim);
-        let pos_emb_tensor = Tensor::rand(
-            0.0 as f32,
-            1.0 as f32,
-            (config.context_length, config.emb_dim),
-            &device,
-        )
-        .unwrap();
-        let pos_emb = Embedding::new(pos_emb_tensor, config.emb_dim);
+        let mut map = HashMap::new();
+        map.insert(
+            String::from("weight"),
+            Tensor::randn(0f32, 1., (config.vocab_size, config.emb_dim), &device)?,
+        );
+        let vb = VarBuilder::from_tensors(map, DType::F32, &device);
+        let tok_emb = embedding(config.vocab_size, config.emb_dim, vb)?;
+        let mut map2 = HashMap::new();
+        map2.insert(
+            String::from("weight"),
+            Tensor::rand(0f32, 1., (config.context_length, config.emb_dim), &device)?,
+        );
+        let vb2 = VarBuilder::from_tensors(map2, DType::F32, &device);
+        let pos_emb = embedding(config.context_length, config.emb_dim, vb2)?;
         let drop_emb = Dropout::new(config.drop_rate);
         let mut blocks = vec![];
         for _ in 0..config.n_layers {
-            blocks.push(DummyTransformerBlock::new(config.clone()));
+            blocks.push(DummyTransformerBlock::new(config.clone())?);
         }
         let ln_f = DummyLayerNorm::new(config.emb_dim, 1e-5);
-        let out_head_tensor = Tensor::rand(
-            0.0 as f32,
-            1.0 as f32,
-            (config.vocab_size, config.emb_dim),
-            &device,
-        )
-        .unwrap();
-        let out_head = Linear::new(out_head_tensor, None);
+        let vmap = VarMap::new();
+        let vb = VarBuilder::from_varmap(&vmap, DType::F32, &device);
+        let out_head = linear(config.emb_dim, config.vocab_size, vb.pp("out_head"))?;
 
-        Self {
+        Ok(Self {
             tok_emb,
             pos_emb,
             drop_emb,
@@ -65,7 +62,7 @@ impl DummyGptModel {
             ln_f,
             out_head,
             device,
-        }
+        })
     }
 
     pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
@@ -96,7 +93,7 @@ pub struct DummyTransformerBlock {
 }
 
 impl DummyTransformerBlock {
-    pub fn new(config: GptConfig) -> Self {
+    pub fn new(config: GptConfig) -> Result<Self> {
         let attn = MultiHeadAttention::new(
             config.emb_dim,
             config.emb_dim,
@@ -105,18 +102,18 @@ impl DummyTransformerBlock {
             config.drop_rate,
             None,
             get_device(),
-        );
-        let ff = DummyFeedForward::new(config.clone(), None);
+        )?;
+        let ff = DummyFeedForward::new(config.clone())?;
         let norm1 = DummyLayerNorm::new(config.emb_dim, 1e-5);
         let norm2 = DummyLayerNorm::new(config.emb_dim, 1e-5);
         let dropout = Dropout::new(config.drop_rate);
-        Self {
+        Ok(Self {
             attn,
             ff,
             norm1,
             norm2,
             dropout,
-        }
+        })
     }
 
     pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
@@ -156,7 +153,9 @@ impl DummyLayerNorm {
         let norm_x = x.var_keepdim(D::Minus1)?;
         let x_normed = x.broadcast_div(&(norm_x + self.norm_eps)?.sqrt().unwrap())?;
         let x_normed = x_normed.to_dtype(DType::F32)?;
-        let x_normed = x_normed.broadcast_mul(&self.weight)?.broadcast_add(&self.bias)?;
+        let x_normed = x_normed
+            .broadcast_mul(&self.weight)?
+            .broadcast_add(&self.bias)?;
         Ok(x_normed)
     }
 }
@@ -167,25 +166,13 @@ pub struct DummyFeedForward {
 }
 
 impl DummyFeedForward {
-    pub fn new(config: GptConfig, bias: Option<Tensor>) -> Self {
+    pub fn new(config: GptConfig) -> Result<Self> {
         let device = get_device();
-        let linear_1_tensor = Tensor::rand(
-            0.0 as f32,
-            1.0 as f32,
-            (config.emb_dim * 4, config.emb_dim),
-            &device,
-        )
-        .unwrap();
-        let linear_1 = Linear::new(linear_1_tensor, bias.clone());
-        let linear_2_tensor = Tensor::rand(
-            0.0 as f32,
-            1.0 as f32,
-            (config.emb_dim, config.emb_dim * 4),
-            &device,
-        )
-        .unwrap();
-        let linear_2 = Linear::new(linear_2_tensor, bias.clone());
-        Self { linear_1, linear_2 }
+        let vmap = VarMap::new();
+        let vb = VarBuilder::from_varmap(&vmap, DType::F32, &device);
+        let linear_1 = linear(config.emb_dim, config.emb_dim * 4, vb.pp("linear_1"))?;
+        let linear_2 = linear(config.emb_dim * 4, config.emb_dim, vb.pp("linear_2"))?;
+        Ok(Self { linear_1, linear_2 })
     }
 
     pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
@@ -209,16 +196,26 @@ pub fn get_device() -> Device {
     }
 }
 
-pub fn generate_text_simple(model: &DummyGptModel, idx: &Tensor, max_new_tokens: usize, context_size: usize) -> Result<Tensor> {
+pub fn generate_text_simple(
+    model: &DummyGptModel,
+    idx: &Tensor,
+    max_new_tokens: usize,
+    context_size: usize,
+) -> Result<Tensor> {
     let mut idx = idx.clone();
     for _ in 0..max_new_tokens {
         let (b, t) = idx.shape().dims2()?;
-        let start_idx = if t > context_size { t - context_size } else { 0 };
+        let start_idx = if t > context_size {
+            t - context_size
+        } else {
+            0
+        };
         let idx_cond = idx.i((.., start_idx..t))?;
         let logits = model.forward(&idx_cond)?;
         let (b, t, _) = logits.shape().dims3()?;
         let logits = logits.i((.., t - 1, ..))?;
         let probas = softmax(&logits, D::Minus1)?;
+        dbg!(&probas);
         let idx_next: Tensor = probas.argmax_keepdim(D::Minus1)?;
         idx = Tensor::cat(&[idx, idx_next], 1)?;
     }

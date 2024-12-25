@@ -1,8 +1,7 @@
-use core::f64;
 
-use candle_core::{Device, IndexOp, Result, Tensor, D};
+use candle_core::{DType, Device, IndexOp, Result, Tensor, D};
 use candle_nn::ops::softmax;
-use candle_nn::{Dropout, Linear, Module};
+use candle_nn::{linear, Dropout, Linear, Module, VarBuilder, VarMap};
 
 pub struct MultiHeadAttention {
     d_out: usize,
@@ -24,32 +23,21 @@ impl MultiHeadAttention {
         dropout: f32,
         bias: Option<Tensor>,
         device: Device,
-    ) -> Self {
+    ) -> Result<Self> {
         assert!(d_out % n_heads == 0, "d_out must be divisible by n_heads");
+        let vmap = VarMap::new();
+        let vb = VarBuilder::from_varmap(&vmap, DType::F32, &device);
         let d_head = d_out / n_heads;
-        let w_q = Linear::new(
-            Tensor::rand(0.0 as f32, 1.0 as f32, (d_out, d_in), &device).unwrap(),
-            bias.clone(),
-        );
-        let w_k = Linear::new(
-            Tensor::rand(0.0 as f32, 1.0 as f32, (d_out, d_in), &device).unwrap(),
-            bias.clone(),
-        );
-        let w_v = Linear::new(
-            Tensor::rand(0.0 as f32, 1.0 as f32, (d_out, d_in), &device).unwrap(),
-            bias.clone(),
-        );
-
-        let out_proj = Linear::new(
-            Tensor::rand(0.0 as f32, 1.0 as f32, (d_out, d_out), &device).unwrap(),
-            bias.clone(),
-        );
+        let w_q = linear(d_out, d_in, vb.pp("w_q"))?;
+        let w_k = linear(d_out, d_in, vb.pp("w_k"))?;
+        let w_v = linear(d_out, d_in, vb.pp("w_v"))?;
+        let out_proj = linear(d_out, d_out, vb.pp("out_proj"))?;
 
         let mask: Vec<_> = (0..t)
             .flat_map(|i| (0..t).map(move |j| u8::from(j > i)))
             .collect();
         let mask = Tensor::from_slice(&mask, (t, t), &device).unwrap();
-        Self {
+        Ok(Self {
             d_out,
             n_heads,
             d_head,
@@ -58,12 +46,11 @@ impl MultiHeadAttention {
             w_v,
             out_proj,
             mask,
-        }
+        })
     }
 
     pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
         let (b, t, d_in) = x.shape().dims3()?;
-        println!("b: {}, t: {}, d_in: {}", b, t, d_in);
         // (b, t, d_in) -> (b, t, d_out)
         let q = self.w_q.forward(x)?;
         let k = self.w_k.forward(x)?;

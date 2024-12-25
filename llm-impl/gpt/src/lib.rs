@@ -44,7 +44,7 @@ mod tests {
             n_heads: 12,
             drop_rate: 0.1,
             qkv_bias: false,
-        });
+        }).unwrap();
         let output = gpt.forward(&batch).unwrap();
         println!("output shape: {}", output);
     }
@@ -103,7 +103,7 @@ mod tests {
         let tokenizer = Tokenizer::from_pretrained("gpt2", None).unwrap();
         let encoded = tokenizer.encode(start_context, true).unwrap();
         let idx = Tensor::from_vec(encoded.get_ids().to_vec(), (1, encoded.len()), &get_device()).unwrap();
-        let output = generate_text_simple(&DummyGptModel::new(GptConfig {
+        let gpt = DummyGptModel::new(GptConfig {
             vocab_size: 50257,
             context_length: 1024,
             emb_dim: 768,
@@ -111,7 +111,8 @@ mod tests {
             n_heads: 12,
             drop_rate: 0.1,
             qkv_bias: false,
-        }), &idx, 6, 1024).unwrap();
+        }).unwrap();
+        let output = generate_text_simple(&gpt, &idx, 6, 1024).unwrap();
         let output = output.squeeze(0).unwrap().to_vec1().unwrap();
         let decoded = tokenizer.decode(&output, true).unwrap();
         println!("output: {}", decoded);
@@ -130,8 +131,7 @@ mod tests {
                 drop_rate: 0.1,
                 qkv_bias: false,
             },
-            None,
-        );
+        ).unwrap();
         let y = ffn.forward(&x).unwrap();
         println!("y: {}", y);
     }
@@ -156,7 +156,7 @@ mod tests {
             n_heads: 12,
             drop_rate: 0.1,
             qkv_bias: false,
-        });
+        }).unwrap();
         let y = block.forward(&x).unwrap();
         println!("y: {}", y);
     }

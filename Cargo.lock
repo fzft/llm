@@ -148,7 +148,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 name = "attention"
 version = "0.1.0"
 dependencies = [
- "candle-core 0.8.1",
+ "candle-core",
  "candle-nn",
 ]
 
@@ -315,29 +315,8 @@ checksum = "428d9aa8fbc0670b7b8d6030a7fadd0f86151cae55e4dbbece15f3780a3dfaf3"
 
 [[package]]
 name = "candle-core"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e1a39b963e261c58017edf2007e5b63425ad21538aaaf51fe23d1da41703701"
-dependencies = [
- "byteorder",
- "gemm",
- "half",
- "memmap2",
- "num-traits",
- "num_cpus",
- "rand",
- "rand_distr",
- "rayon",
- "safetensors",
- "thiserror",
- "yoke",
- "zip 1.1.4",
-]
-
-[[package]]
-name = "candle-core"
 version = "0.8.1"
-source = "git+https://github.com/huggingface/candle.git#67cab7d6b8279f953b0a8cc5012b135b9743cdc8"
+source = "git+https://github.com/huggingface/candle.git#cd639131f04990c16bfc498ea347cb9df3d2374f"
 dependencies = [
  "byteorder",
  "candle-kernels",
@@ -361,7 +340,7 @@ dependencies = [
 [[package]]
 name = "candle-kernels"
 version = "0.8.1"
-source = "git+https://github.com/huggingface/candle.git#67cab7d6b8279f953b0a8cc5012b135b9743cdc8"
+source = "git+https://github.com/huggingface/candle.git#cd639131f04990c16bfc498ea347cb9df3d2374f"
 dependencies = [
  "bindgen_cuda",
 ]
@@ -369,9 +348,9 @@ dependencies = [
 [[package]]
 name = "candle-nn"
 version = "0.8.1"
-source = "git+https://github.com/huggingface/candle.git#67cab7d6b8279f953b0a8cc5012b135b9743cdc8"
+source = "git+https://github.com/huggingface/candle.git#cd639131f04990c16bfc498ea347cb9df3d2374f"
 dependencies = [
- "candle-core 0.8.1",
+ "candle-core",
  "half",
  "num-traits",
  "rayon",
@@ -1026,7 +1005,7 @@ name = "gpt"
 version = "0.1.0"
 dependencies = [
  "attention",
- "candle-core 0.8.1",
+ "candle-core",
  "candle-nn",
  "rand",
  "tokenizers",
@@ -1405,7 +1384,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -1953,7 +1932,7 @@ dependencies = [
 name = "pretraining"
 version = "0.1.0"
 dependencies = [
- "candle-core 0.8.1",
+ "candle-core",
  "candle-nn",
  "gpt",
  "tokenizers",
@@ -3395,7 +3374,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3657,7 +3636,7 @@ dependencies = [
 name = "working-with-text-data"
 version = "0.1.0"
 dependencies = [
- "candle-core 0.7.2",
+ "candle-core",
  "futures-util",
  "regex",
  "reqwest",
