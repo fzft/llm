@@ -131,7 +131,6 @@ impl DummyTransformerBlock {
     pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
         let shortcut = x.clone();
         let x = self.ln_1.forward(&x)?;
-        println!("x shape: {:?}", x.shape());
         let x = self.attn.forward(&x)?;
         let x = self.dropout.forward(&x, false)?;
         let x = x.add(&shortcut)?;

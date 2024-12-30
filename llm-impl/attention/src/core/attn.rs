@@ -46,18 +46,31 @@ impl MultiHeadAttention {
         // (b, t, d_in) -> (b, t, d_out)
         let qkv = self.qkv_linear.forward(x)?;
         // (b, t, d_out) -> (b, t, n_heads, d_head)
-        let qkv = qkv.reshape((b, t, self.n_heads, self.d_head))?;
-        let q = qkv.i((0, .., 0, ..))?;
-        let k = qkv.i((0, .., 1, ..))?;
-        let v = qkv.i((0, .., 2, ..))?;
+
+        let d0 = 0..d_in;
+        let d1 = d_in..d_in * 2;
+        let d2 = d_in * 2..d_in * 3;
+
+        let q = qkv.i((.., .., d0))?;
+        let k = qkv.i((.., .., d1))?;
+        let v = qkv.i((.., .., d2))?;
+
+        let q = q.reshape((b, t, self.n_heads, self.d_head))?;
+        let k = k.reshape((b, t, self.n_heads, self.d_head))?;
+        let v = v.reshape((b, t, self.n_heads, self.d_head))?;
 
         // (b, n_heads, t, d_head) -> (b, n_heads, t, t)
+        let q = q.transpose(1, 2)?.contiguous()?;
+        let k = k.transpose(1, 2)?.contiguous()?;
+        let v = v.transpose(1, 2)?.contiguous()?;
+
         let attn = q.matmul(&k.transpose(2, 3)?)?;
         let mask = self.mask.i((0..t, 0..t))?;
         let mask = mask.broadcast_as(attn.shape())?;
         let attn = masked_fill(&attn, &mask, f32::NEG_INFINITY)?;
         let attn = softmax(&scale_scores(attn)?, D::Minus1)?;
-        let context_vec = attn.matmul(&v)?.transpose(1, 2)?;
+
+        let context_vec: Tensor = attn.matmul(&v)?.transpose(1, 2)?;
         // (b, n_heads, t, d_head) -> (b, t, d_out)
         let context_vec = context_vec.contiguous()?.reshape((b, t, self.d_out))?;
         // (b, t, d_out) -> (b, t, d_out)

@@ -1,6 +1,6 @@
 use candle_core::{DType, Device, IndexOp, Result, Tensor, D};
 use candle_datasets::{batcher::Iter2, Batcher};
-use candle_nn::loss::cross_entropy;
+use candle_nn::loss::{self, cross_entropy};
 use candle_nn::optim::Optimizer;
 use gpt::{get_device, DummyGptModel};
 use tokenizers::Tokenizer;
@@ -91,6 +91,7 @@ mod tests {
     use candle_datasets::Batcher;
     use candle_nn::loss::cross_entropy;
     use candle_nn::ops::softmax;
+    use candle_nn::{VarBuilder, VarMap};
     use gpt::*;
     use working_with_text_data::Dataset;
 
@@ -147,7 +148,10 @@ mod tests {
             &device,
         )
         .unwrap();
+        let varmap = VarMap::new();
+        let vs = VarBuilder::from_varmap(&varmap, DType::F32, &device);
         let model = DummyGptModel::new(
+            vs,
             GptConfig {
                 vocab_size: 50257,
                 context_length: 1024,
@@ -157,7 +161,6 @@ mod tests {
                 drop_rate: 0.1,
                 qkv_bias: false,
             },
-            device,
         )
         .unwrap();
         let logits = model.forward(&inputs).unwrap();
@@ -227,7 +230,10 @@ mod tests {
             &device,
         )
         .unwrap();
+        let varmap = VarMap::new();
+        let vs = VarBuilder::from_varmap(&varmap, DType::F32, &device);
         let model = DummyGptModel::new(
+            vs,
             GptConfig {
                 vocab_size: 50257,
                 context_length: 1024,
@@ -237,7 +243,6 @@ mod tests {
                 drop_rate: 0.1,
                 qkv_bias: false,
             },
-            device,
         )
         .unwrap();
         let logits = model.forward(&inputs).unwrap();
@@ -299,21 +304,23 @@ mod tests {
         let text_data = std::fs::read_to_string(file_path).unwrap();
         let tokenizer = Tokenizer::from_pretrained("gpt2", None).unwrap();
         let (first, second) = split_text(&text_data, 0.9);
-        let train_dataset = Dataset::new(&first, &tokenizer, 256, 256);
-        let test_dataset = Dataset::new(&second, &tokenizer, 256, 256);
+        let train_dataset = Dataset::new(&first, &tokenizer, 64, 64);
+        let test_dataset = Dataset::new(&second, &tokenizer, 64, 64);
         let train_dataloader = Batcher::new2(train_dataset).batch_size(2);
         let test_dataloader = Batcher::new2(test_dataset).batch_size(2);
+        let varmap = VarMap::new();
+        let vs = VarBuilder::from_varmap(&varmap, DType::F32, &device);
         let model = DummyGptModel::new(
+            vs,
             GptConfig {
                 vocab_size: 50257,
-                context_length: 512,
+                context_length: 64,
                 emb_dim: 768,
                 n_layers: 12,
                 n_heads: 12,
                 drop_rate: 0.1,
                 qkv_bias: false,
             },
-            device.clone(),
         )
         .unwrap();
         let loss = clac_loss_loader(train_dataloader, &model, &device, 9).unwrap();
