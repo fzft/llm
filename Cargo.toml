@@ -13,6 +13,8 @@ candle-nn = { git = "https://github.com/huggingface/candle.git", version = "0.8.
     "cuda",
 ] }
 
+candle-datasets = { git = "https://github.com/huggingface/candle.git", version = "0.8.1" }
+
 tokenizers = { version = "0.20.1", features = ["http"] }
 rand = "0.8.5"
 

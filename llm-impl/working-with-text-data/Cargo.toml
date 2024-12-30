@@ -12,3 +12,4 @@ futures-util = "0.3.31"
 regex = "1.11.0"
 tokenizers = { workspace = true }
 candle-core = { workspace = true }
+candle-datasets = { workspace = true }

@@ -1,49 +1,41 @@
-
-use candle_core::{DType, Device, IndexOp, Result, Tensor, D};
+use candle_core::{IndexOp, Result, Tensor, D};
 use candle_nn::ops::softmax;
-use candle_nn::{linear, Dropout, Linear, Module, VarBuilder, VarMap};
+use candle_nn::{linear, Linear, Module, VarBuilder};
 
 pub struct MultiHeadAttention {
     d_out: usize,
     n_heads: usize,
     d_head: usize,
-    w_q: Linear,
-    w_k: Linear,
-    w_v: Linear,
+    qkv_linear: Linear,
     out_proj: Linear,
     mask: Tensor,
 }
 
 impl MultiHeadAttention {
     pub fn new(
+        vb: VarBuilder,
         d_in: usize,
         d_out: usize,
         t: usize,
         n_heads: usize,
-        dropout: f32,
-        bias: Option<Tensor>,
-        device: Device,
     ) -> Result<Self> {
         assert!(d_out % n_heads == 0, "d_out must be divisible by n_heads");
-        let vmap = VarMap::new();
-        let vb = VarBuilder::from_varmap(&vmap, DType::F32, &device);
         let d_head = d_out / n_heads;
-        let w_q = linear(d_out, d_in, vb.pp("w_q"))?;
-        let w_k = linear(d_out, d_in, vb.pp("w_k"))?;
-        let w_v = linear(d_out, d_in, vb.pp("w_v"))?;
-        let out_proj = linear(d_out, d_out, vb.pp("out_proj"))?;
+        let qkv_linear = linear(d_in, d_out * 3, vb.pp("c_attn"))?;
+        // let w_q = linear(d_out, d_in, vb.pp("w_q"))?;
+        // let w_k = linear(d_out, d_in, vb.pp("w_k"))?;
+        // let w_v = linear(d_out, d_in, vb.pp("w_v"))?;
+        let out_proj = linear(d_out, d_out, vb.pp("c_proj"))?;
 
         let mask: Vec<_> = (0..t)
             .flat_map(|i| (0..t).map(move |j| u8::from(j > i)))
             .collect();
-        let mask = Tensor::from_slice(&mask, (t, t), &device).unwrap();
+        let mask = Tensor::from_slice(&mask, (t, t), vb.device()).unwrap();
         Ok(Self {
             d_out,
             n_heads,
             d_head,
-            w_q,
-            w_k,
-            w_v,
+            qkv_linear,
             out_proj,
             mask,
         })
@@ -52,19 +44,12 @@ impl MultiHeadAttention {
     pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
         let (b, t, d_in) = x.shape().dims3()?;
         // (b, t, d_in) -> (b, t, d_out)
-        let q = self.w_q.forward(x)?;
-        let k = self.w_k.forward(x)?;
-        let v = self.w_v.forward(x)?;
-
+        let qkv = self.qkv_linear.forward(x)?;
         // (b, t, d_out) -> (b, t, n_heads, d_head)
-        let q = q.reshape((b, t, self.n_heads, self.d_head))?;
-        let k = k.reshape((b, t, self.n_heads, self.d_head))?;
-        let v = v.reshape((b, t, self.n_heads, self.d_head))?;
-
-        // (b, t, n_heads, d_head) -> (b, n_heads, t, d_head)
-        let q = q.transpose(1, 2)?.contiguous()?;
-        let k = k.transpose(1, 2)?.contiguous()?;
-        let v = v.transpose(1, 2)?.contiguous()?;
+        let qkv = qkv.reshape((b, t, self.n_heads, self.d_head))?;
+        let q = qkv.i((0, .., 0, ..))?;
+        let k = qkv.i((0, .., 1, ..))?;
+        let v = qkv.i((0, .., 2, ..))?;
 
         // (b, n_heads, t, d_head) -> (b, n_heads, t, t)
         let attn = q.matmul(&k.transpose(2, 3)?)?;

@@ -23,8 +23,8 @@ pub fn stack_tensors() -> Result<Tensor> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use candle_core::{Tensor, D, IndexOp};
-    use candle_nn::{Linear, Module};
+    use candle_core::{DType, IndexOp, Tensor, D};
+    use candle_nn::{Linear, Module, VarBuilder, VarMap};
 
     #[test]
     fn it_works() {
@@ -34,17 +34,24 @@ mod tests {
 
     #[test]
     pub fn test_gpt() {
+        let device = get_device();
         let batch = stack_tensors().unwrap();
         println!("batch shape: {:?}", batch.shape());
-        let gpt = DummyGptModel::new(GptConfig {
-            vocab_size: 50257,
-            context_length: 1024,
-            emb_dim: 768,
-            n_layers: 1,
-            n_heads: 12,
-            drop_rate: 0.1,
-            qkv_bias: false,
-        }).unwrap();
+        let vmap = VarMap::new();
+        let vb = VarBuilder::from_varmap(&vmap, DType::F32, &device);
+        let gpt = DummyGptModel::new(
+            vb,
+            GptConfig {
+                vocab_size: 50257,
+                context_length: 1024,
+                emb_dim: 768,
+                n_layers: 1,
+                n_heads: 12,
+                drop_rate: 0.1,
+                qkv_bias: false,
+            },
+        )
+        .unwrap();
         let output = gpt.forward(&batch).unwrap();
         println!("output shape: {}", output);
     }
@@ -99,29 +106,20 @@ mod tests {
 
     #[test]
     pub fn test_generate_text_simple() {
+        let device = get_device();
         let start_context = "Hello, I am a";
         let tokenizer = Tokenizer::from_pretrained("gpt2", None).unwrap();
         let encoded = tokenizer.encode(start_context, true).unwrap();
-        let idx = Tensor::from_vec(encoded.get_ids().to_vec(), (1, encoded.len()), &get_device()).unwrap();
-        let gpt = DummyGptModel::new(GptConfig {
-            vocab_size: 50257,
-            context_length: 1024,
-            emb_dim: 768,
-            n_layers: 1,
-            n_heads: 12,
-            drop_rate: 0.1,
-            qkv_bias: false,
-        }).unwrap();
-        let output = generate_text_simple(&gpt, &idx, 6, 1024).unwrap();
-        let output = output.squeeze(0).unwrap().to_vec1().unwrap();
-        let decoded = tokenizer.decode(&output, true).unwrap();
-        println!("output: {}", decoded);
-    }
-
-    #[test]
-    pub fn test_ffn() {
-        let x = Tensor::rand(0.0f32, 1.0f32, (2, 4, 768), &get_device()).unwrap();
-        let ffn = DummyFeedForward::new(
+        let idx = Tensor::from_vec(
+            encoded.get_ids().to_vec(),
+            (1, encoded.len()),
+            &get_device(),
+        )
+        .unwrap();
+        let vmap = VarMap::new();
+        let vb = VarBuilder::from_varmap(&vmap, DType::F32, &device);
+        let gpt = DummyGptModel::new(
+            vb,
             GptConfig {
                 vocab_size: 50257,
                 context_length: 1024,
@@ -131,7 +129,33 @@ mod tests {
                 drop_rate: 0.1,
                 qkv_bias: false,
             },
-        ).unwrap();
+        )
+        .unwrap();
+        let output = generate_text_simple(&gpt, &idx, 6, 1024).unwrap();
+        let output = output.squeeze(0).unwrap().to_vec1().unwrap();
+        let decoded = tokenizer.decode(&output, true).unwrap();
+        println!("output: {}", decoded);
+    }
+
+    #[test]
+    pub fn test_ffn() {
+        let device = get_device();
+        let x = Tensor::rand(0.0f32, 1.0f32, (2, 4, 768), &device).unwrap();
+        let vmap = VarMap::new();
+        let vb = VarBuilder::from_varmap(&vmap, DType::F32, &device);
+        let ffn = DummyFeedForward::new(
+            vb,
+            GptConfig {
+                vocab_size: 50257,
+                context_length: 1024,
+                emb_dim: 768,
+                n_layers: 1,
+                n_heads: 12,
+                drop_rate: 0.1,
+                qkv_bias: false,
+            },
+        )
+        .unwrap();
         let y = ffn.forward(&x).unwrap();
         println!("y: {}", y);
     }
@@ -147,16 +171,23 @@ mod tests {
 
     #[test]
     pub fn test_transformer_block() {
-        let x = Tensor::rand(0.0f32, 1.0f32, (2, 4, 768), &get_device()).unwrap();
-        let block = DummyTransformerBlock::new(GptConfig {
-            vocab_size: 50257,
-            context_length: 1024,
-            emb_dim: 768,
-            n_layers: 1,
-            n_heads: 12,
-            drop_rate: 0.1,
-            qkv_bias: false,
-        }).unwrap();
+        let device = get_device();
+        let x = Tensor::rand(0.0f32, 1.0f32, (2, 4, 768), &device).unwrap();
+        let vmap = VarMap::new();
+        let vb = VarBuilder::from_varmap(&vmap, DType::F32, &device);
+        let block = DummyTransformerBlock::new(
+            vb,
+            GptConfig {
+                vocab_size: 50257,
+                context_length: 1024,
+                emb_dim: 768,
+                n_layers: 1,
+                n_heads: 12,
+                drop_rate: 0.1,
+                qkv_bias: false,
+            },
+        )
+        .unwrap();
         let y = block.forward(&x).unwrap();
         println!("y: {}", y);
     }

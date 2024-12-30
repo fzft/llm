@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use attention::core::attn::*;
 use candle_core::{DType, Device, IndexOp, Result, Tensor, D};
 use candle_nn::{
-    embedding, linear, ops::softmax, Dropout, Embedding, Init, Linear, Module, VarBuilder, VarMap,
+    embedding, layer_norm, linear, ops::softmax, Dropout, Embedding, Init, LayerNorm, Linear,
+    Module, VarBuilder, VarMap,
 };
 
 #[derive(Clone)]
@@ -22,37 +23,51 @@ pub struct DummyGptModel {
     pos_emb: Embedding,
     drop_emb: Dropout,
     blocks: Vec<DummyTransformerBlock>,
-    ln_f: DummyLayerNorm,
-    out_head: Linear,
-    device: Device,
+    ln_f: LayerNorm,
+    lm_head: Linear,
 }
 
+/*
+DummyGptModel VarBuilder Architecture
+tok_emb: (vocab_size, emb_dim)
+pos_emb: (context_length, emb_dim)
+drop_emb: (context_length, emb_dim)
+blocks: (n_layers, emb_dim, emb_dim)
+ln_f: (context_length, emb_dim)
+out_head: (emb_dim, vocab_size)
+*/
+
 impl DummyGptModel {
-    pub fn new(config: GptConfig) -> Result<Self> {
-        let device = get_device();
-        let mut map = HashMap::new();
-        map.insert(
-            String::from("weight"),
-            Tensor::randn(0f32, 1., (config.vocab_size, config.emb_dim), &device)?,
-        );
-        let vb = VarBuilder::from_tensors(map, DType::F32, &device);
-        let tok_emb = embedding(config.vocab_size, config.emb_dim, vb)?;
-        let mut map2 = HashMap::new();
-        map2.insert(
-            String::from("weight"),
-            Tensor::rand(0f32, 1., (config.context_length, config.emb_dim), &device)?,
-        );
-        let vb2 = VarBuilder::from_tensors(map2, DType::F32, &device);
-        let pos_emb = embedding(config.context_length, config.emb_dim, vb2)?;
+    pub fn new(vb: VarBuilder, config: GptConfig) -> Result<Self> {
+        // let mut map = HashMap::new();
+        // map.insert(
+        //     String::from("weight"),
+        //     Tensor::randn(0f32, 1., (config.vocab_size, config.emb_dim), &device)?,
+        // );
+        // let vb = VarBuilder::from_tensors(map, DType::F32, &device);
+        // wte: (vocab_size, emb_dim)
+        let transformer = vb.pp("transformer");
+        let tok_emb = embedding(config.vocab_size, config.emb_dim, transformer.pp("wte"))?;
+        // let mut map2 = HashMap::new();
+        // map2.insert(
+        //     String::from("weight"),
+        //     Tensor::rand(0f32, 1., (config.context_length, config.emb_dim), &device)?,
+        // );
+        // let vb2 = VarBuilder::from_tensors(map2, DType::F32, &device);
+        // wpe: (context_length, emb_dim)
+        let pos_emb = embedding(config.context_length, config.emb_dim, transformer.pp("wpe"))?;
         let drop_emb = Dropout::new(config.drop_rate);
         let mut blocks = vec![];
-        for _ in 0..config.n_layers {
-            blocks.push(DummyTransformerBlock::new(config.clone())?);
+        for i in 0..config.n_layers {
+            blocks.push(DummyTransformerBlock::new(
+                transformer.pp(format!("h.{i}")),
+                config.clone(),
+            )?);
         }
-        let ln_f = DummyLayerNorm::new(config.emb_dim, 1e-5);
-        let vmap = VarMap::new();
-        let vb = VarBuilder::from_varmap(&vmap, DType::F32, &device);
-        let out_head = linear(config.emb_dim, config.vocab_size, vb.pp("out_head"))?;
+        // let vmap = VarMap::new();
+        // let vb = VarBuilder::from_varmap(&vmap, DType::F32, &device);
+        let ln_f = layer_norm(config.emb_dim, 1e-5, transformer.pp("ln_f"))?;
+        let lm_head = linear(config.emb_dim, config.vocab_size, vb.pp("lm_head"))?;
 
         Ok(Self {
             tok_emb,
@@ -60,8 +75,7 @@ impl DummyGptModel {
             drop_emb,
             blocks,
             ln_f,
-            out_head,
-            device,
+            lm_head,
         })
     }
 
@@ -70,7 +84,7 @@ impl DummyGptModel {
         let tok_embeds = self.tok_emb.forward(x)?;
         let pos_embeds = self
             .pos_emb
-            .forward(&Tensor::arange(0, t as u32, &self.device)?)?
+            .forward(&Tensor::arange(0, t as u32, x.device())?)?
             .broadcast_as(tok_embeds.shape())?;
         let x = tok_embeds.add(&pos_embeds)?;
         let mut x = self.drop_emb.forward(&x, false)?;
@@ -79,7 +93,7 @@ impl DummyGptModel {
         }
         let x = self.ln_f.forward(&x)?;
         // (batch_size, seq_len, emb_dim) * (emb_dim, vocab_size) -> (batch_size, seq_len, vocab_size)
-        let logits = self.out_head.forward(&x)?;
+        let logits = self.lm_head.forward(&x)?;
         Ok(logits)
     }
 }
@@ -87,76 +101,44 @@ impl DummyGptModel {
 pub struct DummyTransformerBlock {
     attn: MultiHeadAttention,
     ff: DummyFeedForward,
-    norm1: DummyLayerNorm,
-    norm2: DummyLayerNorm,
+    ln_1: LayerNorm,
+    ln_2: LayerNorm,
     dropout: Dropout,
 }
 
 impl DummyTransformerBlock {
-    pub fn new(config: GptConfig) -> Result<Self> {
+    pub fn new(vb: VarBuilder, config: GptConfig) -> Result<Self> {
         let attn = MultiHeadAttention::new(
+            vb.pp("attn"),
             config.emb_dim,
             config.emb_dim,
             config.context_length,
             config.n_heads,
-            config.drop_rate,
-            None,
-            get_device(),
         )?;
-        let ff = DummyFeedForward::new(config.clone())?;
-        let norm1 = DummyLayerNorm::new(config.emb_dim, 1e-5);
-        let norm2 = DummyLayerNorm::new(config.emb_dim, 1e-5);
+        let ff = DummyFeedForward::new(vb.pp("mlp"), config.clone())?;
+        let ln_1 = layer_norm(config.emb_dim, 1e-5, vb.pp("ln_1"))?;
+        let ln_2 = layer_norm(config.emb_dim, 1e-5, vb.pp("ln_2"))?;
         let dropout = Dropout::new(config.drop_rate);
         Ok(Self {
             attn,
             ff,
-            norm1,
-            norm2,
+            ln_1,
+            ln_2,
             dropout,
         })
     }
 
     pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
         let shortcut = x.clone();
-        let x = self.norm1.forward(&x)?;
+        let x = self.ln_1.forward(&x)?;
+        println!("x shape: {:?}", x.shape());
         let x = self.attn.forward(&x)?;
         let x = self.dropout.forward(&x, false)?;
         let x = x.add(&shortcut)?;
-        let x = self.norm2.forward(&x)?;
+        let x = self.ln_2.forward(&x)?;
         let x = self.ff.forward(&x)?;
         let x = x.add(&shortcut)?;
         Ok(x)
-    }
-}
-
-pub struct DummyLayerNorm {
-    norm_eps: f64,
-    weight: Tensor,
-    bias: Tensor,
-}
-
-impl DummyLayerNorm {
-    pub fn new(normalized_shape: usize, norm_eps: f64) -> Self {
-        let device = get_device();
-        let weight = Tensor::ones((normalized_shape,), DType::F32, &device).unwrap();
-        let bias = Tensor::zeros((normalized_shape,), DType::F32, &device).unwrap();
-        Self {
-            norm_eps,
-            weight,
-            bias,
-        }
-    }
-
-    pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
-        let x_mean = x.mean_keepdim(D::Minus1)?;
-        let x = x.broadcast_sub(&x_mean)?;
-        let norm_x = x.var_keepdim(D::Minus1)?;
-        let x_normed = x.broadcast_div(&(norm_x + self.norm_eps)?.sqrt().unwrap())?;
-        let x_normed = x_normed.to_dtype(DType::F32)?;
-        let x_normed = x_normed
-            .broadcast_mul(&self.weight)?
-            .broadcast_add(&self.bias)?;
-        Ok(x_normed)
     }
 }
 
@@ -166,12 +148,9 @@ pub struct DummyFeedForward {
 }
 
 impl DummyFeedForward {
-    pub fn new(config: GptConfig) -> Result<Self> {
-        let device = get_device();
-        let vmap = VarMap::new();
-        let vb = VarBuilder::from_varmap(&vmap, DType::F32, &device);
-        let linear_1 = linear(config.emb_dim, config.emb_dim * 4, vb.pp("linear_1"))?;
-        let linear_2 = linear(config.emb_dim * 4, config.emb_dim, vb.pp("linear_2"))?;
+    pub fn new(vb: VarBuilder, config: GptConfig) -> Result<Self> {
+        let linear_1 = linear(config.emb_dim, config.emb_dim * 4, vb.pp("c_fc"))?;
+        let linear_2 = linear(config.emb_dim * 4, config.emb_dim, vb.pp("c_proj"))?;
         Ok(Self { linear_1, linear_2 })
     }
 

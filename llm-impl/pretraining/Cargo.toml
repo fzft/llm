@@ -6,5 +6,7 @@ edition = "2021"
 [dependencies]
 candle-core = { workspace = true }
 candle-nn = { workspace = true }
+candle-datasets = { workspace = true }
 gpt = { path = "../gpt" }
+working-with-text-data = { path = "../working-with-text-data" }
 tokenizers = { workspace = true }

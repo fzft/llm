@@ -1,15 +1,20 @@
 use std::ops::Index;
 
-use crate::core::tokenize::Tokenizer;
 use candle_core::{Device, Tensor};
 use tokenizers::Tokenizer as TiktokenTokenizer;
 
-struct Dataset {
+#[derive(Clone)]
+pub struct Dataset {
     pub data: Vec<(Tensor, Tensor)>,
 }
 
 impl Dataset {
-    pub fn new(txt: &str, tokenizer: &TiktokenTokenizer, max_seq_len: usize, stride: usize) -> Self {
+    pub fn new(
+        txt: &str,
+        tokenizer: &TiktokenTokenizer,
+        max_seq_len: usize,
+        stride: usize,
+    ) -> Self {
         let device = Device::Cpu;
         let tokens = tokenizer.encode(txt, true).unwrap();
         let mut data = Vec::<(Tensor, Tensor)>::new();
@@ -32,7 +37,6 @@ impl Dataset {
     }
 }
 
-
 impl Index<usize> for Dataset {
     type Output = (Tensor, Tensor);
 
@@ -41,18 +45,19 @@ impl Index<usize> for Dataset {
     }
 }
 
+impl Iterator for Dataset {
+    type Item = (Tensor, Tensor);
 
-pub struct DataLoader {
-    pub dataset: Dataset,
-    pub batch_size: usize,
+    fn next(&mut self) -> Option<Self::Item> {
+        self.data.pop()
+    }
 }
-
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use tokenizers::Tokenizer;
+    use candle_datasets::Batcher;
 
     #[test]
     fn test_dataset() {
@@ -61,5 +66,29 @@ mod tests {
         let tokenizer = Tokenizer::from_pretrained("gpt2", None).unwrap();
         let dataset = Dataset::new(&text_data, &tokenizer, 1024, 1024);
         println!("dataset: {:?}", dataset.len());
+    }
+
+    #[test]
+    fn test_iterator() {
+        let file_path = "../DATA/the-verdict.txt";
+        let text_data = std::fs::read_to_string(file_path).unwrap();
+        let tokenizer = Tokenizer::from_pretrained("gpt2", None).unwrap();
+        let dataset = Dataset::new(&text_data, &tokenizer, 1024, 1024);
+        for (input, target) in dataset {
+            println!("input: {:?}", input);
+            println!("target: {:?}", target);
+        }
+    }
+
+    #[test]
+    fn test_dataloader() {
+        let file_path = "../DATA/the-verdict.txt";
+        let text_data = std::fs::read_to_string(file_path).unwrap();
+        let tokenizer = Tokenizer::from_pretrained("gpt2", None).unwrap();
+        let dataset = Dataset::new(&text_data, &tokenizer, 4, 1);
+        let dataloader = Batcher::new2(dataset).batch_size(1);
+        for batch in dataloader {
+            println!("batch: {:?}", batch);
+        }
     }
 }
